@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  db:
+    image: mysql:5.7
+    container_name: fc-docker-db
+    restart: always
+    tty: true
+    volumes:
+      - ./mysql/_data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=fc-docker-db
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - fc-docker-network
+
+  node_app:
+    build: node-app
+    container_name: fc-docker-node-app
+    entrypoint: dockerize -wait tcp://fc-docker-db:3306 -timeout 20s docker-entrypoint.sh
+    command: bash -c "npm run migrate:db && npm start"
+    tty: true
+    depends_on:
+      - db
+    volumes:
+      - ./node-app:/usr/src/app
+    environment:
+      - SQL_DATABASE_NAME=fc-docker-db
+      - SQL_DATABASE_HOST=fc-docker-db
+      - SQL_DATABASE_USER=root
+      - SQL_DATABASE_PASSWORD=root
+    networks:
+      - fc-docker-network
+
+  nginx:
+    build: nginx
+    container_name: fc-docker-nginx
+    depends_on:
+      - node_app
+    ports:
+      - '8080:80'
+    networks:
+      - fc-docker-network
+
+networks:
+  fc-docker-network:
